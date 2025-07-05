@@ -5,10 +5,10 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 1
-    path: Assets/Scenes/NetCodeForGameObject.unity
-    guid: eed2cb6437e08914ab8a4d17976e4863
   - enabled: 0
     path: Assets/Scenes/LobbyTutorial_Done.unity
     guid: be8200a558cfff84b8ce074fa6e33558
+  - enabled: 1
+    path: Assets/Scenes/NetCodeForGameObject.unity
+    guid: eed2cb6437e08914ab8a4d17976e4863
   m_configObjects: {}

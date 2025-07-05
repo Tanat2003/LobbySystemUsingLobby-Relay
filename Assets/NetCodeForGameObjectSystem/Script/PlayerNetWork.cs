@@ -45,31 +45,40 @@ public class PlayerNetWork : NetworkBehaviour
 
 
     private void Update()
-    {
-        if (!IsOwner) //‡©æ“–Owner¢Õßobjπ—ÈπÊ∑’Ë¡’ §√‘ªµÏπ’Èµ‘¥∂÷ß√—π‰¥È
-            return;
-        if(Input.GetKeyDown(KeyCode.T))
+    {//‡©æ“–Owner¢Õßobjπ—ÈπÊ∑’Ë¡’ §√‘ªµÏπ’Èµ‘¥∂÷ß√—π‰¥È
+        if (IsOwner)
         {
-          Transform spawnObjectTransform  = Instantiate(spawnObjectPrefab);
-            spawnObjectTransform.GetComponent<NetworkObject>().Spawn(true); // Spawn„πNetWork ·≈–networkobject “¡“√∂spawn„πnetworkServer‡∑Ë“π—Èπ
-        }
+            if (Input.GetKeyDown(KeyCode.T))
+            {
+                Transform spawnObjectTransform = Instantiate(spawnObjectPrefab);
+                spawnObjectTransform.GetComponent<NetworkObject>().Spawn(true); // Spawn„πNetWork ·≈–networkobject “¡“√∂spawn„πnetworkServer‡∑Ë“π—Èπ
+            }
 
-        Vector3 moveDir = new Vector3(0, 0, 0);
-        if(Input.GetKeyDown(KeyCode.W))
-        {
-            moveDir.z += 1f;
-        } if(Input.GetKeyDown(KeyCode.S))
-        {
-            moveDir.z -= 1f;
-        } if(Input.GetKeyDown(KeyCode.A))
-        {
-            moveDir.x += -1f;
-        } if(Input.GetKeyDown(KeyCode.D))
-        {
-            moveDir.x += 1f;
+            Vector3 moveDir = new Vector3(0, 0, 0);
+            while (Input.GetKeyDown(KeyCode.W))
+            {
+                moveDir.z += 1f;
+            }
+            while(Input.GetKeyDown(KeyCode.S))
+            {
+                moveDir.z -= 1f;
+            }
+            while (Input.GetKeyDown(KeyCode.A))
+            {
+                moveDir.x += -1f;
+            }
+            while (Input.GetKeyDown(KeyCode.D))
+            {
+                moveDir.x += 1f;
+            }
+            float moveSPD = 10f;
+            transform.position += moveDir * moveSPD * Time.deltaTime;
+
+
+
         }
-        float moveSPD = 5f;
-        transform.position += moveDir * moveSPD * Time.deltaTime;
+            
+       
     }
 
     

@@ -1,3 +1,4 @@
+using Unity.Netcode;
 using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -23,12 +24,14 @@ namespace StarterAssets
 #if ENABLE_INPUT_SYSTEM
 		public void OnMove(InputValue value)
 		{
-			MoveInput(value.Get<Vector2>());
+            if (!GetComponent<NetworkBehaviour>().IsOwner) return;
+            MoveInput(value.Get<Vector2>());
 		}
 
 		public void OnLook(InputValue value)
 		{
-			if(cursorInputForLook)
+            if (!GetComponent<NetworkBehaviour>().IsOwner) return;
+            if (cursorInputForLook)
 			{
 				LookInput(value.Get<Vector2>());
 			}
@@ -36,12 +39,14 @@ namespace StarterAssets
 
 		public void OnJump(InputValue value)
 		{
-			JumpInput(value.isPressed);
+            if (!GetComponent<NetworkBehaviour>().IsOwner) return;
+            JumpInput(value.isPressed);
 		}
 
 		public void OnSprint(InputValue value)
 		{
-			SprintInput(value.isPressed);
+            if (!GetComponent<NetworkBehaviour>().IsOwner) return;
+            SprintInput(value.isPressed);
 		}
 #endif
 

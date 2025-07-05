@@ -1,11 +1,14 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using Unity.Netcode;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class LobbyManager : MonoBehaviour {
 
@@ -16,6 +19,7 @@ public class LobbyManager : MonoBehaviour {
     public const string KEY_PLAYER_NAME = "PlayerName";
     public const string KEY_PLAYER_CHARACTER = "Character";
     public const string KEY_GAME_MODE = "GameMode";
+    public const string KEY_START_GAME = "Start";
 
 
 
@@ -25,6 +29,7 @@ public class LobbyManager : MonoBehaviour {
     public event EventHandler<LobbyEventArgs> OnJoinedLobbyUpdate;
     public event EventHandler<LobbyEventArgs> OnKickedFromLobby;
     public event EventHandler<LobbyEventArgs> OnLobbyGameModeChanged;
+    public event EventHandler<EventArgs> OnGameStarted;
     public class LobbyEventArgs : EventArgs {
         public Lobby lobby;
     }
@@ -126,6 +131,16 @@ public class LobbyManager : MonoBehaviour {
 
                     joinedLobby = null;
                 }
+                if (joinedLobby.Data[KEY_START_GAME].Value != "0") 
+                {
+                    if (!IsLobbyHost())//lobbyhost join relay·≈È«
+                    {
+                        TestRelay.Instance.JoinRelay(joinedLobby.Data[KEY_START_GAME].Value);
+                        OnGameStarted?.Invoke(this, EventArgs.Empty);
+                    }
+                    joinedLobby = null;
+                    
+                }
             }
         }
     }
@@ -183,7 +198,8 @@ public class LobbyManager : MonoBehaviour {
             Player = player,
             IsPrivate = isPrivate,
             Data = new Dictionary<string, DataObject> {
-                { KEY_GAME_MODE, new DataObject(DataObject.VisibilityOptions.Public, gameMode.ToString()) }
+                { KEY_GAME_MODE, new DataObject(DataObject.VisibilityOptions.Public, gameMode.ToString()) },
+                {KEY_START_GAME, new DataObject(DataObject.VisibilityOptions.Member,"0") }
             }
         };
 
@@ -353,4 +369,34 @@ public class LobbyManager : MonoBehaviour {
         }
     }
 
+    public async Task StartGame()
+    {
+        if (IsLobbyHost())
+        {
+            try
+            {
+                Debug.Log("StartGame");
+                string relayCode = await TestRelay.Instance.CreateRelay();
+                Lobby lobby = await Lobbies.Instance.UpdateLobbyAsync(joinedLobby.Id, new UpdateLobbyOptions
+                {
+                    Data = new Dictionary<string, DataObject>
+                {
+                   {KEY_START_GAME, new DataObject(DataObject.VisibilityOptions.Member,relayCode) }
+                }
+                });
+                joinedLobby = lobby;
+                
+                OnGameStarted?.Invoke(this,EventArgs.Empty);
+
+            }
+            catch (LobbyServiceException e)
+            {
+               // Debug.LogError(e);
+                Debug.Log(e);
+            }
+            
+        }
+        
+    }
+    
 }
