@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Netcode;
+using Unity.Services.Authentication;
 using UnityEngine;
 
 public class PlayerNetWork : NetworkBehaviour
@@ -37,15 +38,26 @@ public class PlayerNetWork : NetworkBehaviour
     }
     public override void OnNetworkSpawn() //‡©æ“–µÕπ∑’ËNetWorkSpawn
     {
+        
+
+
         randomNumber.OnValueChanged += (MyCustomData previousValue, MyCustomData newValue) =>
         {
             Debug.Log("Owner: " + OwnerClientId + "has Create " + newValue._int);
         };
     }
+    private void Start()
+    {
+        //StorePlayerId When PlayerPrefabsSpawn
+        if (IsOwner && IsClient)
+        {
+           StartCoroutine(DelayRegister());
+        }
+    }
 
 
     private void Update()
-    {//‡©æ“–Owner¢Õßobjπ—ÈπÊ∑’Ë¡’ §√‘ªµÏπ’Èµ‘¥∂÷ß√—π‰¥È
+    {
         if (IsOwner)
         {
             if (Input.GetKeyDown(KeyCode.T))
@@ -54,25 +66,7 @@ public class PlayerNetWork : NetworkBehaviour
                 spawnObjectTransform.GetComponent<NetworkObject>().Spawn(true); // Spawn„πNetWork ·≈–networkobject “¡“√∂spawn„πnetworkServer‡∑Ë“π—Èπ
             }
 
-            Vector3 moveDir = new Vector3(0, 0, 0);
-            while (Input.GetKeyDown(KeyCode.W))
-            {
-                moveDir.z += 1f;
-            }
-            while(Input.GetKeyDown(KeyCode.S))
-            {
-                moveDir.z -= 1f;
-            }
-            while (Input.GetKeyDown(KeyCode.A))
-            {
-                moveDir.x += -1f;
-            }
-            while (Input.GetKeyDown(KeyCode.D))
-            {
-                moveDir.x += 1f;
-            }
-            float moveSPD = 10f;
-            transform.position += moveDir * moveSPD * Time.deltaTime;
+            
 
 
 
@@ -81,5 +75,22 @@ public class PlayerNetWork : NetworkBehaviour
        
     }
 
-    
+    private IEnumerator DelayRegister()
+    {
+        Debug.Log("?? WaitUntil LobbyManager.Instance != null...");
+        yield return new WaitUntil(() => LobbyManager.Instance != null);
+
+        Debug.Log("? LobbyManager.Instance is ready, calling RPC...");
+        SendPlayerIdToHostServerRpc(AuthenticationService.Instance.PlayerId);
+    }
+
+
+    [ServerRpc(RequireOwnership = false)]
+    private void SendPlayerIdToHostServerRpc(string playerId, ServerRpcParams rpcParams = default)
+    {
+        ulong clientId = rpcParams.Receive.SenderClientId;
+        LobbyManager.Instance.RegisterPlayerId(clientId, playerId);
+    }
+
+
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -20,6 +21,7 @@ public class LobbyCreateUI : MonoBehaviour {
     [SerializeField] private TextMeshProUGUI maxPlayersText;
     [SerializeField] private TextMeshProUGUI gameModeText;
 
+    
 
     private string lobbyName;
     private bool isPrivate;
@@ -30,6 +32,7 @@ public class LobbyCreateUI : MonoBehaviour {
         Instance = this;
 
         createButton.onClick.AddListener(() => {
+            
             LobbyManager.Instance.CreateLobby(
                 lobbyName,
                 maxPlayers,
@@ -37,6 +40,8 @@ public class LobbyCreateUI : MonoBehaviour {
                 gameMode
             );
             Hide();
+            
+
         });
 
         lobbyNameButton.onClick.AddListener(() => {
@@ -87,6 +92,7 @@ public class LobbyCreateUI : MonoBehaviour {
         publicPrivateText.text = isPrivate ? "Private" : "Public";
         maxPlayersText.text = maxPlayers.ToString();
         gameModeText.text = gameMode.ToString();
+        
     }
 
     private void Hide() {
@@ -103,5 +109,5 @@ public class LobbyCreateUI : MonoBehaviour {
 
         UpdateText();
     }
-
+    public bool GetIsPrivate() => isPrivate;
 }

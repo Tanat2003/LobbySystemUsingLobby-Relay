@@ -18,7 +18,7 @@ public class LobbyListSingleUI : MonoBehaviour {
 
     private void Awake() {
         GetComponent<Button>().onClick.AddListener(() => {
-            LobbyManager.Instance.JoinLobby(lobby);
+            LobbyManager.Instance.CheckIfJoinLobbyHasPassword(lobby);
         });
     }
 

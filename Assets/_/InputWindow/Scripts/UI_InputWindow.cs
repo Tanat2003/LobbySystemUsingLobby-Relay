@@ -87,6 +87,11 @@ public class UI_InputWindow : MonoBehaviour {
     }
 
     public static void Show_Static(string titleString, string inputString, string validCharacters, int characterLimit, Action onCancel, Action<string> onOk) {
+        if (instance == null)
+        {
+            Debug.LogError("❌ UI_InputWindow.instance is NULL!");
+            return;
+        }
         instance.Show(titleString, inputString, validCharacters, characterLimit, onCancel, onOk);
     }
 
