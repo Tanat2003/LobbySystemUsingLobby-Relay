@@ -71,6 +71,7 @@ public class LobbyManager : NetworkBehaviour
 
     private Dictionary<ulong, string> clientIdToPlayerId = new();
 
+    #region ExcuteMethod
     public override void OnNetworkSpawn()
     {
         NetworkManager.Singleton.OnClientDisconnectCallback += NetworkManager_OnClientDisconnectCallback;
@@ -102,7 +103,9 @@ public class LobbyManager : NetworkBehaviour
         HandleLobbyHeartbeat();
         HandleLobbyPolling();
     }
+    #endregion
 
+    #region AuthenticateMethod
     public void RegisterPlayerId(ulong clientId, string playerId)
     {
         if (!clientIdToPlayerId.ContainsKey(clientId))
@@ -133,7 +136,17 @@ public class LobbyManager : NetworkBehaviour
 
         await AuthenticationService.Instance.SignInAnonymouslyAsync();
     }
+    #endregion
 
+
+
+
+
+
+
+
+
+    #region HandleCreatedLobbyMethod
     private void HandleRefreshLobbyList()
     {
         if (UnityServices.State == ServicesInitializationState.Initialized && AuthenticationService.Instance.IsSignedIn)
@@ -191,7 +204,7 @@ public class LobbyManager : NetworkBehaviour
                 }
 
                 //Lobby not start game yet
-                if (joinedLobby.Data[KEY_START_GAME].Value == "0")
+                if (!IsLobbyStartGame())
                 {
                     if (joinedLobby.Data[KEY_PASSWORD_GAME].Value == "Password")
                     {
@@ -210,7 +223,7 @@ public class LobbyManager : NetworkBehaviour
 
                 }
 
-                if (joinedLobby.Data[KEY_START_GAME].Value != "0" && joinedLobby.Data[KEY_PASSWORD_GAME].Value == "Password")
+                if (IsLobbyStartGame() && !IsLobbyGameHasPassword())
                 {
                     if (!IsLobbyHost())
                     {
@@ -226,7 +239,7 @@ public class LobbyManager : NetworkBehaviour
                 }
 
                 //people can join while playing but need to enter password
-                if (joinedLobby.Data[KEY_START_GAME].Value != "0" && joinedLobby.Data[KEY_PASSWORD_GAME].Value != "Password")
+                if (IsLobbyStartGame() && IsLobbyGameHasPassword())
                 {
                     if (!IsLobbyHost())
                     {
@@ -258,50 +271,9 @@ public class LobbyManager : NetworkBehaviour
             }
         }
     }
+    #endregion
 
-    private async void ShowEnterPasswordForClient()
-    {
-        Lobby latestLobby = await LobbyService.Instance.GetLobbyAsync(joinedLobby.Id);
-        string realPassword = latestLobby.Data[KEY_PASSWORD_GAME].Value;
-
-        LobbyUI.Instance.EnterPasswordForLobby(realPassword, latestLobby);
-    }
-
-    public Lobby GetJoinedLobby()
-    {
-        return joinedLobby;
-    }
-
-    public bool IsLobbyHost()
-    {
-        return joinedLobby != null && joinedLobby.HostId == AuthenticationService.Instance.PlayerId;
-    }
-
-    private bool IsPlayerInLobby()
-    {
-        if (joinedLobby != null && joinedLobby.Players != null)
-        {
-            foreach (Player player in joinedLobby.Players)
-            {
-                if (player.Id == AuthenticationService.Instance.PlayerId)
-                {
-                    // This player is in this lobby
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private Player GetPlayer()
-    {
-        return new Player(AuthenticationService.Instance.PlayerId, null, new Dictionary<string, PlayerDataObject> {
-            { KEY_PLAYER_NAME, new PlayerDataObject(PlayerDataObject.VisibilityOptions.Public, playerName) },
-            { KEY_PLAYER_CHARACTER, new PlayerDataObject(PlayerDataObject.VisibilityOptions.Public, PlayerCharacter.Marine.ToString()) },
-            {KEY_PLAYER_ALREADY_ENTER_PASSWORD_RIGHT, new PlayerDataObject(PlayerDataObject.VisibilityOptions.Public,playerEnterPasswordStatus)}
-        });
-    }
-
+    #region UpdateLobbyDataMethod
     public void ChangeGameMode()
     {
         if (IsLobbyHost())
@@ -321,207 +293,6 @@ public class LobbyManager : NetworkBehaviour
             }
 
             UpdateLobbyGameMode(gameMode);
-        }
-    }
-
-    public async void CreateLobby(string lobbyName, int maxPlayers, bool isPrivate, GameMode gameMode)
-    {
-        Player player = GetPlayer();
-
-        CreateLobbyOptions options = new CreateLobbyOptions
-        {
-            Player = player,
-            //IsPrivate = isPrivate, //enable it if you want to disable other to join privateroom
-            Data = new Dictionary<string, DataObject> {
-                { KEY_GAME_MODE, new DataObject(DataObject.VisibilityOptions.Public, gameMode.ToString()) },
-                {KEY_START_GAME, new DataObject(DataObject.VisibilityOptions.Member,"0") },
-                {KEY_PASSWORD_GAME, new DataObject(DataObject.VisibilityOptions.Public,"Password") },
-                //Use IndexOptions for Lobby Filter
-                {KEY_CANJOIN_GAME, new DataObject(DataObject.VisibilityOptions.Public,value:"CanJoin",index: DataObject.IndexOptions.S1) }
-            }
-        };
-
-        Lobby lobby = await LobbyService.Instance.CreateLobbyAsync(lobbyName, maxPlayers, options);
-
-        joinedLobby = lobby;
-
-        OnJoinedLobby?.Invoke(this, new LobbyEventArgs { lobby = lobby });
-        if (isPrivate)
-        {
-            UpdatePasswordLobby(joinedLobby.LobbyCode);
-            OnPrivateLobbyCreate?.Invoke(this, EventArgs.Empty);
-        }
-        Debug.Log("Created Lobby " + lobby.Name);
-    }
-
-    public async void RefreshLobbyList()
-    {
-        try
-        {
-            QueryLobbiesOptions options = new QueryLobbiesOptions();
-            options.Count = 25;
-
-            // Filter for open lobbies only
-            //options.Filters = new List<QueryFilter> {
-            //    new QueryFilter(
-            //        field: QueryFilter.FieldOptions.AvailableSlots,
-            //        op: QueryFilter.OpOptions.GT,
-            //        value: "0")
-            //};
-
-            //Filter a lobby that can join while playing(If host not start all player will be able to join)
-            options.Filters = new List<QueryFilter>
-            {
-                new QueryFilter(
-                    field: QueryFilter.FieldOptions.S1,
-                    op: QueryFilter.OpOptions.EQ,
-                    value: "CanJoin"
-                    )
-            };
-
-            // Order by newest lobbies first
-            options.Order = new List<QueryOrder> {
-                new QueryOrder(
-                    asc: false,
-                    field: QueryOrder.FieldOptions.Created)
-            };
-
-            QueryResponse lobbyListQueryResponse = await Lobbies.Instance.QueryLobbiesAsync(options);
-
-            OnLobbyListChanged?.Invoke(this, new OnLobbyListChangedEventArgs { lobbyList = lobbyListQueryResponse.Results });
-        }
-        catch (LobbyServiceException e)
-        {
-            Debug.Log(e);
-        }
-    }
-
-    public async void JoinLobbyByCode(string lobbyCode)
-    {
-        Player player = GetPlayer();
-
-        Lobby lobby = await LobbyService.Instance.JoinLobbyByCodeAsync(lobbyCode, new JoinLobbyByCodeOptions
-        {
-            Player = player
-        });
-
-        joinedLobby = lobby;
-
-        OnJoinedLobby?.Invoke(this, new LobbyEventArgs { lobby = lobby });
-    }
-    public async void CheckIfJoinLobbyHasPassword(Lobby lobby)
-    {
-        Player player = GetPlayer();
-
-        joinedLobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobby.Id, new JoinLobbyByIdOptions
-        {
-            Player = player
-        });
-
-        if (joinedLobby.Data[KEY_PASSWORD_GAME].Value != "Password")
-        {
-            Debug.Log("LobbyHasPassword we are going to show enterpasswordUI");
-
-            ShowEnterPasswordForClient();
-
-        }
-        else
-        {
-            JoinLobby(joinedLobby);
-        }
-    }
-    public async void JoinLobby(Lobby lobby)
-    {
-        Player player = GetPlayer();
-
-        joinedLobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobby.Id, new JoinLobbyByIdOptions
-        {
-            Player = player
-        });
-
-        OnJoinedLobby?.Invoke(this, new LobbyEventArgs { lobby = lobby });
-    }
-
-    public async void StartGame()
-    {
-        if (IsLobbyHost())
-        {
-            try
-            {
-                string relayCode = await TestRelay.Instance.CreateRelay();
-                Lobby lobby = await Lobbies.Instance.UpdateLobbyAsync(joinedLobby.Id, new UpdateLobbyOptions
-                {
-                    Data = new Dictionary<string, DataObject>
-                    {
-                        {KEY_START_GAME,new DataObject(DataObject.VisibilityOptions.Member,relayCode) },
-                    }
-                });
-
-                joinedLobby = lobby;
-
-
-            }
-            catch (LobbyServiceException e)
-            {
-                Debug.Log(e);
-            }
-        }
-
-    }
-    public async void UpdatePlayerName(string playerName)
-    {
-        this.playerName = playerName;
-
-        if (joinedLobby != null)
-        {
-            try
-            {
-                UpdatePlayerOptions options = new UpdatePlayerOptions();
-
-                options.Data = new Dictionary<string, PlayerDataObject>() {
-                    {
-                        KEY_PLAYER_NAME, new PlayerDataObject(
-                            visibility: PlayerDataObject.VisibilityOptions.Public,
-                            value: playerName)
-                    }
-                };
-
-                string playerId = AuthenticationService.Instance.PlayerId;
-
-                Lobby lobby = await LobbyService.Instance.UpdatePlayerAsync(joinedLobby.Id, playerId, options);
-                joinedLobby = lobby;
-
-                OnJoinedLobbyUpdate?.Invoke(this, new LobbyEventArgs { lobby = joinedLobby });
-            }
-            catch (LobbyServiceException e)
-            {
-                Debug.Log(e);
-            }
-        }
-    }
-    public void UpdatePlayerEnterPassword(string passwordEnterStatus)
-    {
-        this.playerEnterPasswordStatus = passwordEnterStatus;
-        if (joinedLobby != null)
-        {
-            try
-            {
-                UpdatePlayerOptions options = new UpdatePlayerOptions();
-                options.Data = new Dictionary<string, PlayerDataObject>()
-                { {
-                        KEY_PLAYER_ALREADY_ENTER_PASSWORD_RIGHT, new PlayerDataObject(
-                            visibility: PlayerDataObject.VisibilityOptions.Public,
-                            value: passwordEnterStatus)
-                    }
-
-                };
-
-
-            }
-            catch (LobbyServiceException e)
-            {
-                Debug.Log(e);
-            }
         }
     }
     public async void UpdatePasswordLobby(string passwordToChange)
@@ -591,10 +362,62 @@ public class LobbyManager : NetworkBehaviour
         
 
     }
+    public async void UpdateLobbyGameMode(GameMode gameMode)
+    {
+        try
+        {
+            Debug.Log("UpdateLobbyGameMode " + gameMode);
 
+            Lobby lobby = await Lobbies.Instance.UpdateLobbyAsync(joinedLobby.Id, new UpdateLobbyOptions
+            {
+                Data = new Dictionary<string, DataObject> {
+                    { KEY_GAME_MODE, new DataObject(DataObject.VisibilityOptions.Public, gameMode.ToString()) }
+                }
+            });
 
+            joinedLobby = lobby;
 
+            OnLobbyGameModeChanged?.Invoke(this, new LobbyEventArgs { lobby = joinedLobby });
+        }
+        catch (LobbyServiceException e)
+        {
+            Debug.Log(e);
+        }
+    }
+    #endregion
 
+    #region UpdatePlayerDataMethod
+    public async void UpdatePlayerName(string playerName)
+    {
+        this.playerName = playerName;
+
+        if (joinedLobby != null)
+        {
+            try
+            {
+                UpdatePlayerOptions options = new UpdatePlayerOptions();
+
+                options.Data = new Dictionary<string, PlayerDataObject>() {
+                    {
+                        KEY_PLAYER_NAME, new PlayerDataObject(
+                            visibility: PlayerDataObject.VisibilityOptions.Public,
+                            value: playerName)
+                    }
+                };
+
+                string playerId = AuthenticationService.Instance.PlayerId;
+
+                Lobby lobby = await LobbyService.Instance.UpdatePlayerAsync(joinedLobby.Id, playerId, options);
+                joinedLobby = lobby;
+
+                OnJoinedLobbyUpdate?.Invoke(this, new LobbyEventArgs { lobby = joinedLobby });
+            }
+            catch (LobbyServiceException e)
+            {
+                Debug.Log(e);
+            }
+        }
+    }
     public async void UpdatePlayerCharacter(PlayerCharacter playerCharacter)
     {
         if (joinedLobby != null)
@@ -624,6 +447,84 @@ public class LobbyManager : NetworkBehaviour
             }
         }
     }
+    public void UpdatePlayerEnterPassword(string passwordEnterStatus)
+    {
+        this.playerEnterPasswordStatus = passwordEnterStatus;
+        if (joinedLobby != null)
+        {
+            try
+            {
+                UpdatePlayerOptions options = new UpdatePlayerOptions();
+                options.Data = new Dictionary<string, PlayerDataObject>()
+                { {
+                        KEY_PLAYER_ALREADY_ENTER_PASSWORD_RIGHT, new PlayerDataObject(
+                            visibility: PlayerDataObject.VisibilityOptions.Public,
+                            value: passwordEnterStatus)
+                    }
+
+                };
+
+
+            }
+            catch (LobbyServiceException e)
+            {
+                Debug.Log(e);
+            }
+        }
+    }
+    #endregion
+
+    #region Join&StartLobbyMethod
+    public async void JoinLobbyByCode(string lobbyCode)
+    {
+        Player player = GetPlayer();
+
+        Lobby lobby = await LobbyService.Instance.JoinLobbyByCodeAsync(lobbyCode, new JoinLobbyByCodeOptions
+        {
+            Player = player
+        });
+
+        joinedLobby = lobby;
+
+        OnJoinedLobby?.Invoke(this, new LobbyEventArgs { lobby = lobby });
+    }
+    public async void JoinLobby(Lobby lobby)
+    {
+        Player player = GetPlayer();
+
+        joinedLobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobby.Id, new JoinLobbyByIdOptions
+        {
+            Player = player
+        });
+
+        OnJoinedLobby?.Invoke(this, new LobbyEventArgs { lobby = lobby });
+    }
+    public async void StartGame()
+    {
+        if (IsLobbyHost())
+        {
+            try
+            {
+                string relayCode = await TestRelay.Instance.CreateRelay();
+                Lobby lobby = await Lobbies.Instance.UpdateLobbyAsync(joinedLobby.Id, new UpdateLobbyOptions
+                {
+                    Data = new Dictionary<string, DataObject>
+                    {
+                        {KEY_START_GAME,new DataObject(DataObject.VisibilityOptions.Member,relayCode) },
+                    }
+                });
+
+                joinedLobby = lobby;
+
+
+            }
+            catch (LobbyServiceException e)
+            {
+                Debug.Log(e);
+            }
+        }
+
+    }
 
     public async void QuickJoinLobby()
     {
@@ -641,7 +542,23 @@ public class LobbyManager : NetworkBehaviour
             Debug.Log(e);
         }
     }
-
+    #endregion
+    #region PlayerLeftLobbyMethod
+    private bool IsPlayerInLobby()
+    {
+        if (joinedLobby != null && joinedLobby.Players != null)
+        {
+            foreach (Player player in joinedLobby.Players)
+            {
+                if (player.Id == AuthenticationService.Instance.PlayerId)
+                {
+                    // This player is in this lobby
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
     public async void LeaveLobby()
     {
         if (joinedLobby != null)
@@ -675,28 +592,123 @@ public class LobbyManager : NetworkBehaviour
             }
         }
     }
+    #endregion
+    #region LobbyStart&LobbyHasPasswordMethod
+    private bool IsLobbyStartGame() => joinedLobby.Data[KEY_START_GAME].Value != "0";
+    private bool IsLobbyGameHasPassword() => joinedLobby.Data[KEY_PASSWORD_GAME].Value != "Password";
+    #endregion
+    public bool IsLobbyHost()
+    {
+        return joinedLobby != null && joinedLobby.HostId == AuthenticationService.Instance.PlayerId;
+    }
+    private Player GetPlayer()
+    {
+        return new Player(AuthenticationService.Instance.PlayerId, null, new Dictionary<string, PlayerDataObject> {
+            { KEY_PLAYER_NAME, new PlayerDataObject(PlayerDataObject.VisibilityOptions.Public, playerName) },
+            { KEY_PLAYER_CHARACTER, new PlayerDataObject(PlayerDataObject.VisibilityOptions.Public, PlayerCharacter.Marine.ToString()) },
+            {KEY_PLAYER_ALREADY_ENTER_PASSWORD_RIGHT, new PlayerDataObject(PlayerDataObject.VisibilityOptions.Public,playerEnterPasswordStatus)}
+        });
+    }
+    public async void CreateLobby(string lobbyName, int maxPlayers, bool isPrivate, GameMode gameMode)
+    {
+        Player player = GetPlayer();
 
-    public async void UpdateLobbyGameMode(GameMode gameMode)
+        CreateLobbyOptions options = new CreateLobbyOptions
+        {
+            Player = player,
+            //IsPrivate = isPrivate, //enable it if you want to disable other to join privateroom
+            Data = new Dictionary<string, DataObject> {
+                { KEY_GAME_MODE, new DataObject(DataObject.VisibilityOptions.Public, gameMode.ToString()) },
+                {KEY_START_GAME, new DataObject(DataObject.VisibilityOptions.Member,"0") },
+                {KEY_PASSWORD_GAME, new DataObject(DataObject.VisibilityOptions.Public,"Password") },
+                //Use IndexOptions for Lobby Filter
+                {KEY_CANJOIN_GAME, new DataObject(DataObject.VisibilityOptions.Public,value:"CanJoin",index: DataObject.IndexOptions.S1) }
+            }
+        };
+
+        Lobby lobby = await LobbyService.Instance.CreateLobbyAsync(lobbyName, maxPlayers, options);
+
+        joinedLobby = lobby;
+
+        OnJoinedLobby?.Invoke(this, new LobbyEventArgs { lobby = lobby });
+        if (isPrivate)
+        {
+            UpdatePasswordLobby(joinedLobby.LobbyCode);
+            OnPrivateLobbyCreate?.Invoke(this, EventArgs.Empty);
+        }
+        Debug.Log("Created Lobby " + lobby.Name);
+    }
+    public async void CheckIfJoinLobbyHasPassword(Lobby lobby)
+    {
+        Player player = GetPlayer();
+
+        joinedLobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobby.Id, new JoinLobbyByIdOptions
+        {
+            Player = player
+        });
+
+        if (joinedLobby.Data[KEY_PASSWORD_GAME].Value != "Password")
+        {
+            Debug.Log("LobbyHasPassword we are going to show enterpasswordUI");
+
+            ShowEnterPasswordForClient();
+
+        }
+        else
+        {
+            JoinLobby(joinedLobby);
+        }
+    }
+    public async void RefreshLobbyList()
     {
         try
         {
-            Debug.Log("UpdateLobbyGameMode " + gameMode);
+            QueryLobbiesOptions options = new QueryLobbiesOptions();
+            options.Count = 25;
 
-            Lobby lobby = await Lobbies.Instance.UpdateLobbyAsync(joinedLobby.Id, new UpdateLobbyOptions
+            // Filter for open lobbies only
+            //options.Filters = new List<QueryFilter> {
+            //    new QueryFilter(
+            //        field: QueryFilter.FieldOptions.AvailableSlots,
+            //        op: QueryFilter.OpOptions.GT,
+            //        value: "0")
+            //};
+
+            //Filter a lobby that can join while playing(If host not start all player will be able to join)
+            options.Filters = new List<QueryFilter>
             {
-                Data = new Dictionary<string, DataObject> {
-                    { KEY_GAME_MODE, new DataObject(DataObject.VisibilityOptions.Public, gameMode.ToString()) }
-                }
-            });
+                new QueryFilter(
+                    field: QueryFilter.FieldOptions.S1,
+                    op: QueryFilter.OpOptions.EQ,
+                    value: "CanJoin"
+                    )
+            };
 
-            joinedLobby = lobby;
+            // Order by newest lobbies first
+            options.Order = new List<QueryOrder> {
+                new QueryOrder(
+                    asc: false,
+                    field: QueryOrder.FieldOptions.Created)
+            };
 
-            OnLobbyGameModeChanged?.Invoke(this, new LobbyEventArgs { lobby = joinedLobby });
+            QueryResponse lobbyListQueryResponse = await Lobbies.Instance.QueryLobbiesAsync(options);
+
+            OnLobbyListChanged?.Invoke(this, new OnLobbyListChangedEventArgs { lobbyList = lobbyListQueryResponse.Results });
         }
         catch (LobbyServiceException e)
         {
             Debug.Log(e);
         }
     }
+    private async void ShowEnterPasswordForClient()
+    {
+        Lobby latestLobby = await LobbyService.Instance.GetLobbyAsync(joinedLobby.Id);
+        string realPassword = latestLobby.Data[KEY_PASSWORD_GAME].Value;
 
+        LobbyUI.Instance.EnterPasswordForLobby(realPassword, latestLobby);
+    }
+    public Lobby GetJoinedLobby()
+    {
+        return joinedLobby;
+    }
 }

@@ -59,7 +59,7 @@ public class LobbyUI : MonoBehaviour
         startGameModeButton.onClick.AddListener(() =>
         {
 
-
+            startGameModeButton.gameObject.SetActive(false);
             LobbyManager.Instance.StartGame();
 
         });
@@ -127,7 +127,7 @@ public class LobbyUI : MonoBehaviour
         lobbyNameText.text = lobby.Name;
         playerCountText.text = lobby.Players.Count + "/" + lobby.MaxPlayers;
         gameModeText.text = lobby.Data[LobbyManager.KEY_GAME_MODE].Value;
-        ;
+        
 
         Show();
     }

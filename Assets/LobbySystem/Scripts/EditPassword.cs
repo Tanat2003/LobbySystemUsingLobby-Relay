@@ -43,7 +43,7 @@ public class EditPassword : MonoBehaviour
 
     private void EditPassword_OnPasswordChange(object sender, EventArgs e)
     {
-        //¡Ë´Ë¡´¡Ë
+       
         Debug.Log("?? UpdatePasswordLobby called with: " + password);
         LobbyManager.Instance.UpdatePasswordLobby(GetPasswordOfLobby());
     }

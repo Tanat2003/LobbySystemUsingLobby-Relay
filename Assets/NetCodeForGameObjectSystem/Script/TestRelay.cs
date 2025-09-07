@@ -16,18 +16,7 @@ public class TestRelay : MonoBehaviour
     {
         Instance = this;
     }
-    //private async void Start()
-    //{
-    //    await UnityServices.InitializeAsync();
-
-    //    //Sing IN as anonymouse
-    //    await AuthenticationService.Instance.SignInAnonymouslyAsync();
-
-    //    AuthenticationService.Instance.SignedIn += () =>
-    //    {
-    //        Debug.Log("SingIN: " + AuthenticationService.Instance.PlayerId);
-    //    };
-    //}
+   
 
     public async Task<string> CreateRelay()
     {
@@ -42,14 +31,7 @@ public class TestRelay : MonoBehaviour
             //Set§Ë“µË“ßÊ„πUnityTransport¢Õßhost„ÀÈµ√ß°—∫relay∑’Ë √È“ß¡“(§π √È“ß‡ªÁπhost)
             NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(relayServerData);
             
-            //NetworkManager.Singleton.GetComponent<UnityTransport>().
-            //    SetRelayServerData(allocation.RelayServer.IpV4,
-            //    (ushort)allocation.RelayServer.Port,
-            //    allocation.AllocationIdBytes,
-            //    allocation.Key,
-            //    allocation.ConnectionData
-
-            //    );
+           
             NetworkManager.Singleton.StartHost();
             
             return joinCode;
@@ -71,16 +53,7 @@ public class TestRelay : MonoBehaviour
             //Set§Ë“µË“ßÊ„πUnityTransport¢Õßhost„ÀÈµ√ß°—∫relay∑’Ë √È“ß¡“(§π √È“ß‡ªÁπhost)
             NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(relayServerData);    
 
-            //NetworkManager.Singleton.GetComponent<UnityTransport>().
-            //    SetClientRelayData(
-            //    joinAllocation.RelayServer.IpV4,
-            //    (ushort)joinAllocation.RelayServer.Port,
-            //    joinAllocation.AllocationIdBytes,
-            //    joinAllocation.Key,
-            //    joinAllocation.ConnectionData,
-            //    joinAllocation.HostConnectionData
-
-            //    );
+           
             NetworkManager.Singleton.StartClient();
         }
         catch (RelayServiceException e)
